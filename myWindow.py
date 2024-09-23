@@ -10,6 +10,7 @@ from qgis._gui import QgsMapCanvas, QgsLayerTreeMapCanvasBridge, QgsLayerTreeVie
     QgsAttributeTableModel, QgsAttributeTableFilterModel
 from qgis.core import QgsProject
 from untitled import Ui_MainWindow
+from data_control.dataControl import DataManager
 
 
 # PROJECT = QgsProject.instance()
@@ -45,7 +46,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # 设置窗体标题
         self.setWindowTitle("312205040222jpy")
         # action槽函数绑定
-        self.actionOpen_Map.triggered.connect(self.actionOpenMapTriggered)
+        # self.actionOpen_Map.triggered.connect(self.actionOpenMapTriggered)
         # 设置画布
         self.mapCanvas = QgsMapCanvas(self)
         h1 = QHBoxLayout(self.frame)
@@ -68,10 +69,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.model.setFlag(QgsLayerTreeModel.ShowLegendAsTree)  # 展示图例
         self.model.setAutoCollapseLegendNodes(10)  # 当节点数大于等于10时自动折叠
         self.layerTreeView.setModel(self.model)
-
+        self.connectFunc()
         # 绑定打开矢量地图和打开栅格函数槽函数
-        self.actionOpen_Raster.triggered.connect(self.openRasterTriggered)
-        self.actionOpen_Vector.triggered.connect(self.openVectorTriggered)
+        # self.actionOpen_Raster.triggered.connect(self.openRasterTriggered)
+        # self.actionOpen_Vector.triggered.connect(self.openVectorTriggered)
 
         # 添加图层树右键菜单
         # 1、选中图层时的默认Action
@@ -123,17 +124,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         :return: None
         """
         data_file, ext = QFileDialog.getOpenFileName(self, 'Open Raster', '', "QGIS Raster(*.tif)")
-        rasterLayer = QgsRasterLayer(data_file, os.path.basename(data_file))
-        QgsProject.instance().addMapLayer(rasterLayer)
+        # rasterLayer = QgsRasterLayer(data_file, os.path.basename(data_file))
+        # QgsProject.instance().addMapLayer(rasterLayer)
+        cur_raster = DataManager.readRasterFile(data_file)
+        DataManager.addMapLayer(cur_raster, self.mapCanvas)
 
     def openVectorTriggered(self):
         """
         打开矢量文件响应槽函数
         :return: None
         """
-        data_file, ext = QFileDialog.getOpenFileName(self, 'Open Vector', '', "QGIS Vector(*.tif)")
-        vectorLayer = QgsVectorLayer(data_file, os.path.basename(data_file))
-        QgsProject.instance().addMapLayer(vectorLayer)
+        data_file, ext = QFileDialog.getOpenFileName(self, 'Open Vector', '', "QGIS Vector(*.shp)")
+        # vectorLayer = QgsVectorLayer(data_file, os.path.basename(data_file))
+        # QgsProject.instance().addMapLayer(vectorLayer)
+        cur_vector = DataManager.readVectorFile(data_file)
+        DataManager.addMapLayer(cur_vector, self.mapCanvas)
 
     def showContextMenu(self, index):
         selected_nodels: list[QgsLayerTreeNode] = self.layerTreeView.selectedLayerNodes()
@@ -156,3 +161,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.layer = self.layerTreeView.currentLayer()
         ad = AttributeDialog(self, self.layer)
         ad.show()
+
+    def connectFunc(self):
+        """
+        绑定相关菜单栏或者工具栏按钮
+        :return:
+        """
+
+        # 打开栅格数据
+        self.actionOpen_Raster.triggered.connect(self.openRasterTriggered)
+        # 打开矢量数据
+        self.actionOpen_Vector.triggered.connect(self.openVectorTriggered)
+        # 打开地图
+        self.actionOpen_Map.triggered.connect(self.actionOpenMapTriggered)
