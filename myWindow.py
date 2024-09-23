@@ -2,7 +2,7 @@ import os.path
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QCursor
-from PyQt5.QtWidgets import QFileDialog, QHBoxLayout, QVBoxLayout, QMenu, QAction, QDialog
+from PyQt5.QtWidgets import QFileDialog, QHBoxLayout, QVBoxLayout, QMenu, QAction, QDialog, QApplication
 from qgis.PyQt.QtWidgets import QMainWindow
 from qgis._core import QgsLayerTreeModel, QgsRasterLayer, QgsVectorLayer, QgsLayerTreeNode, QgsMapLayer, \
     QgsVectorLayerCache
@@ -11,32 +11,33 @@ from qgis._gui import QgsMapCanvas, QgsLayerTreeMapCanvasBridge, QgsLayerTreeVie
 from qgis.core import QgsProject
 from untitled import Ui_MainWindow
 from data_control.dataControl import DataManager
-
+from MenuControl import LayerTreeViewMenu
+from attributeDialog import AttributeDialog
 
 # PROJECT = QgsProject.instance()
 
 # 针对不同的图层，设置不同的右键菜单(矢量增加“打开属性表”)
-class AttributeDialog(QDialog):
-    def __init__(self, mainWindows, layer):
-        super(AttributeDialog, self).__init__(mainWindows)
-        self.mainWindows = mainWindows
-        self.mapCanvas = self.mainWindows.mapCanvas
-        self.layer: QgsVectorLayer = layer
-        self.setWindowTitle(self.layer.name() + "属性表")
-        vl = QHBoxLayout(self)
-        self.tableView = QgsAttributeTableView(self)
-        self.resize(400, 400)
-        vl.addWidget(self.tableView)
-        self.openAttributeDialog()
-        QgsGui.editorWidgetRegistry().initEditors(self.mapCanvas)
-
-    def openAttributeDialog(self):
-        self.layerCache = QgsVectorLayerCache(self.layer, 10000)
-        self.tableModel = QgsAttributeTableModel(self.layerCache)
-        self.tableModel.loadLayer()
-        self.tableFilterModel = QgsAttributeTableFilterModel(self.mapCanvas, self.tableModel, parent=self.tableModel)
-        self.tableFilterModel.setFilterMode(QgsAttributeTableFilterModel.ShowAll)  # 显示问题
-        self.tableView.setModel(self.tableFilterModel)
+# class AttributeDialog(QDialog):
+#     def __init__(self, mainWindows, layer):
+#         super(AttributeDialog, self).__init__(mainWindows)
+#         self.mainWindows = mainWindows
+#         self.mapCanvas = self.mainWindows.mapCanvas
+#         self.layer: QgsVectorLayer = layer
+#         self.setWindowTitle(self.layer.name() + "属性表")
+#         vl = QHBoxLayout(self)
+#         self.tableView = QgsAttributeTableView(self)
+#         self.resize(400, 400)
+#         vl.addWidget(self.tableView)
+#         self.openAttributeDialog()
+#         QgsGui.editorWidgetRegistry().initEditors(self.mapCanvas)
+#
+#     def openAttributeDialog(self):
+#         self.layerCache = QgsVectorLayerCache(self.layer, 10000)
+#         self.tableModel = QgsAttributeTableModel(self.layerCache)
+#         self.tableModel.loadLayer()
+#         self.tableFilterModel = QgsAttributeTableFilterModel(self.mapCanvas, self.tableModel, parent=self.tableModel)
+#         self.tableFilterModel.setFilterMode(QgsAttributeTableFilterModel.ShowAll)  # 显示问题
+#         self.tableView.setModel(self.tableFilterModel)
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -74,40 +75,45 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # self.actionOpen_Raster.triggered.connect(self.openRasterTriggered)
         # self.actionOpen_Vector.triggered.connect(self.openVectorTriggered)
 
+        self.control = LayerTreeViewMenu(self.layerTreeView, self.mapCanvas)
         # 添加图层树右键菜单
         # 1、选中图层时的默认Action
-        self.default_action = self.layerTreeView.defaultActions()
-        self.action_zoom_to_layer = self.default_action.actionZoomToLayers(self.mapCanvas)
-        self.action_move_to_top = self.default_action.actionMoveToTop()
-        self.action_move_to_bottom = self.default_action.actionMoveToBottom()
-        self.action_remove_layer = self.default_action.actionRenameGroupOrLayer()
-
+        # self.default_action = self.layerTreeView.defaultActions()
+        # self.action_zoom_to_layer = self.default_action.actionZoomToLayers(self.mapCanvas)
+        # self.action_move_to_top = self.default_action.actionMoveToTop()
+        # self.action_move_to_bottom = self.default_action.actionMoveToBottom()
+        # self.action_remove_layer = self.default_action.actionRenameGroupOrLayer()
+        # self.initAction()
+        # self.initMenu()
         # 2、未选中图层时
-        self.otherMenu = QMenu()
-        self.otherMenu.addAction(self.actionOpen_Map)
-        self.otherMenu.addAction(self.actionOpen_Vector)
-        self.otherMenu.addAction(self.actionOpen_Raster)
+        # self.otherMenu = QMenu()
+        # self.otherMenu.addAction(self.actionOpen_Map)
+        # self.otherMenu.addAction(self.actionOpen_Vector)
+        # self.otherMenu.addAction(self.actionOpen_Raster)
 
         # 3、选中图层时的默认菜单
-        self.defaultMenu = QMenu()
-        self.defaultMenu.addAction(self.action_zoom_to_layer)
-        self.defaultMenu.addAction(self.action_move_to_top)
-        self.defaultMenu.addAction(self.action_move_to_bottom)
-        self.defaultMenu.addAction(self.action_remove_layer)
+        # self.defaultMenu = QMenu()
+        # self.defaultMenu.addAction(self.action_zoom_to_layer)
+        # self.defaultMenu.addAction(self.action_move_to_top)
+        # self.defaultMenu.addAction(self.action_move_to_bottom)
+        # self.defaultMenu.addAction(self.action_remove_layer)
 
         # 4、右键菜单关联
-        self.layerTreeView.customContextMenuRequested.connect(self.showContextMenu)
+        self.layerTreeView.customContextMenuRequested.connect(self.showLayerTreeViewContextMenu)
         self.layerTreeView.setContextMenuPolicy(Qt.CustomContextMenu)
-
+        self.control.action_openAttribute.triggered.connect(self.openAttributeTableTriggered)
+        self.control.action_open_raster.triggered.connect(self.openRasterTriggered)
+        self.control.action_open_vector.triggered.connect(self.openVectorTriggered)
+        self.control.action_open_map.triggered.connect(self.actionOpenMapTriggered)
         # 针对不同的图层类型，设置不同的右键菜单(矢量增加“打开属性表”)
-        self.vectorMenu = QMenu()
-        self.actionShowAttributeDialog = QAction("打开属性表", self.layerTreeView)
-        self.vectorMenu.addAction(self.action_zoom_to_layer)
-        self.vectorMenu.addAction(self.action_move_to_top)
-        self.vectorMenu.addAction(self.action_move_to_bottom)
-        self.vectorMenu.addAction(self.action_remove_layer)
-        self.vectorMenu.addAction(self.actionShowAttributeDialog)
-        self.actionShowAttributeDialog.triggered.connect(self.openAttributeTableTriggered)
+        # self.vectorMenu = QMenu()
+        # self.actionShowAttributeDialog = QAction("打开属性表", self.layerTreeView)
+        # self.vectorMenu.addAction(self.action_zoom_to_layer)
+        # self.vectorMenu.addAction(self.action_move_to_top)
+        # self.vectorMenu.addAction(self.action_move_to_bottom)
+        # self.vectorMenu.addAction(self.action_remove_layer)
+        # self.vectorMenu.addAction(self.actionShowAttributeDialog)
+        # self.actionShowAttributeDialog.triggered.connect(self.openAttributeTableTriggered)
 
     def actionOpenMapTriggered(self):
         """
@@ -140,37 +146,105 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         cur_vector = DataManager.readVectorFile(data_file)
         DataManager.addMapLayer(cur_vector, self.mapCanvas)
 
-    def showContextMenu(self, index):
+    def showLayerTreeViewContextMenu(self, index):
         selected_nodels: list[QgsLayerTreeNode] = self.layerTreeView.selectedLayerNodes()
         selected_layers: list[QgsMapLayer] = self.layerTreeView.selectedLayers()
         if len(selected_nodels) == 0:
-            self.otherMenu.exec_(QCursor.pos())
+            self.control.otherMenu.exec_(QCursor.pos())
         else:
             pass
         if len(selected_layers) == 1:
             # self.defaultMenu.exec_(QCursor.pos())
             current_layer = selected_layers[0]
             if (isinstance(current_layer, QgsVectorLayer)):
-                self.vectorMenu.exec_(QCursor.pos())
+                self.control.vector_menu.exec_(QCursor.pos())
             elif (isinstance(current_layer, QgsRasterLayer)):
-                self.defaultMenu.exec_(QCursor.pos())
+                self.control.raster_menu.exec_(QCursor.pos())
         else:
             pass
 
-    def openAttributeTableTriggered(self):
-        self.layer = self.layerTreeView.currentLayer()
-        ad = AttributeDialog(self, self.layer)
-        ad.show()
+    def showContextMenu(self, index):
+        contextMenu = QMenu(self)
+
+        contextMenu.addAction(self.actionOpen_Map)
+        contextMenu.addAction(self.actionOpen_Raster)
+        contextMenu.addAction(self.actionOpen_Vector)
+
+        action_quit = QAction("退出", self)
+        contextMenu.addAction(action_quit)
+        action_quit.triggered.connect(QApplication.quit)
+        contextMenu.exec(QCursor.pos())
+
+    def initAction(self) -> None:
+        # 图层默认右键
+        self.default_action = self.layerTreeView.defaultActions()
+        self.action_properties = QAction("属性", self.layerTreeView)
+        self.action_zoom_to_layer = self.default_action.actionZoomToLayers(self.mapCanvas)
+        self.action_move_to_top = self.default_action.actionMoveToTop()
+        self.action_move_to_bottom = self.default_action.actionMoveToBottom()
+        self.action_remove_layer = self.default_action.actionRenameGroupOrLayer()
+        # 矢量图层右键
+        self.action_openAttribute = QAction("打开属性表", self.layerTreeView)
+        self.action_start_edit = QAction("开始编辑", self.layerTreeView)
+        self.action_select = QAction("选择要素", self.layerTreeView)
+        self.action_export = QAction("导出图层", self.layerTreeView)
+        # 栅格图层右键
+        self.action_visual_scale = QAction("设置图层可见等级", self.layerTreeView)
+
+        # 没有图层时右键
+        self.action_open_map = QAction("打开地图", self.layerTreeView)
+        self.action_open_vector = QAction("打开矢量文件", self.layerTreeView)
+        self.action_open_raster = QAction("打开栅格文件", self.layerTreeView)
+
+    # def initMenu(self) -> None:
+    #     self.vector_menu = self.initVectorMenu()
+    #     self.raster_menu = self.initRasterMenu()
+    #     self.otherMenu = self.initOtherMenu()
+    #
+    # def initVectorMenu(self) -> QMenu:
+    #     vectorMenu = QMenu()
+    #     self.actionShowAttributeDialog = QAction("打开属性表", self.layerTreeView)
+    #     vectorMenu.addAction(self.action_zoom_to_layer)
+    #     vectorMenu.addAction(self.action_move_to_top)
+    #     vectorMenu.addAction(self.action_move_to_bottom)
+    #     vectorMenu.addAction(self.action_remove_layer)
+    #     vectorMenu.addAction(self.actionShowAttributeDialog)
+    #     vectorMenu.addAction(self.action_start_edit)
+    #     vectorMenu.addAction(self.action_select)
+    #     vectorMenu.addAction(self.action_export)
+    #     self.actionShowAttributeDialog.triggered.connect(self.openAttributeTableTriggered)
+    #     return vectorMenu
+    #
+    # def initRasterMenu(self) -> QMenu:
+    #     rasterMenu = QMenu()
+    #     rasterMenu.addAction(self.action_visual_scale)
+    #     return rasterMenu
+    #
+    # def initOtherMenu(self) -> QMenu:
+    #     otherMenu = QMenu()
+    #     otherMenu.addAction(self.action_open_map)
+    #     otherMenu.addAction(self.action_open_vector)
+    #     otherMenu.addAction(self.action_open_raster)
+    #     return otherMenu
+
+    # def openAttributeTableTriggered(self):
+    #     self.layer = self.layerTreeView.currentLayer()
+    #     ad = AttributeDialog(self, self.layer)
+    #     ad.show()
 
     def connectFunc(self):
         """
         绑定相关菜单栏或者工具栏按钮
         :return:
         """
-
         # 打开栅格数据
         self.actionOpen_Raster.triggered.connect(self.openRasterTriggered)
         # 打开矢量数据
         self.actionOpen_Vector.triggered.connect(self.openVectorTriggered)
         # 打开地图
         self.actionOpen_Map.triggered.connect(self.actionOpenMapTriggered)
+    def openAttributeTableTriggered(self):
+        # print(type(self.layerTreeView.currentLayer()))
+        self.layer: QgsVectorLayer = self.layerTreeView.currentLayer()
+        ad = AttributeDialog(self, self.layer)
+        ad.show()

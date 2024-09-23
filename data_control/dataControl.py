@@ -17,7 +17,7 @@ class DataManager:
         :param firstAddLayer: 判断是否是第一个图层
         :return: None
         """
-        if layer.isValid():
+        if layer is not None and layer.isValid():
             if (len(QgsProject.instance().mapLayers()) == 0):
                 mapCanvas.setDestinationCrs(layer.crs())
                 mapCanvas.setExtent(layer.extent())
